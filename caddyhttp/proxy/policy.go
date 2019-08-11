@@ -44,6 +44,8 @@ func init() {
 	RegisterPolicy("uri_hash", func(arg string) Policy { return &URIHash{} })
 	RegisterPolicy("header", func(arg string) Policy { return &Header{arg} })
 	RegisterPolicy("pasch", func(arg string) Policy { return &PackageAware{} })
+	RegisterPolicy("consist_hash_bounded", func(arg string) Policy { return &Consistent_Hashing_Bounded{} })
+
 }
 
 // Random is a policy that selects up hosts from a pool at random.
@@ -192,19 +194,6 @@ type Header struct {
 
 var roundRobinPolicier RoundRobin
 
-// Select selects the host based on hashing the header value
-func (r *Header) Select(pool HostPool, request *http.Request) *UpstreamHost {
-	if r.Name == "" {
-		return nil
-	}
-	val := request.Header.Get(r.Name)
-	if val == "" {
-		// fallback to RoundRobin policy in case no Header in request
-		return roundRobinPolicier.Select(pool, request)
-	}
-	return hostByHashing(pool, val)
-}
-
 //PackageAware structure for PASCH
 type PackageAware struct {
 	hashRing      *consistent.Consistent
@@ -256,4 +245,41 @@ func (b *PackageAware) selectLeastLoadedWorker() *UpstreamHost {
 		}
 	}
 	return workers[targetIndex]
+}
+
+type Consistent_Hashing_Bounded struct {
+	hashRing *consistent.Consistent
+}
+
+func newHashRingConsistentBounded(pool HostPool) *consistent.Consistent {
+	c := consistent.New()
+	return c
+}
+
+func (r *Consistent_Hashing_Bounded) HostDone(hostName string) {
+	r.hashRing.Done(hostName)
+	return
+}
+
+func (r *Consistent_Hashing_Bounded) Select(pool HostPool, request *http.Request) *UpstreamHost {
+	if r.hashRing == nil {
+		r.hashRing = consistent.New()
+		for _, host := range pool {
+			if host.Available() {
+				r.hashRing.Add(host.Name)
+			}
+		}
+	}
+	bestHost, err := r.hashRing.GetLeast(request.RequestURI)
+	if err != nil {
+		log.Println("There are no hosts in the Hash Ring: ", err)
+	} else {
+		r.hashRing.Inc(bestHost)
+		for _, host := range pool {
+			if host.Name == bestHost {
+				return host
+			}
+		}
+	}
+	return nil
 }
