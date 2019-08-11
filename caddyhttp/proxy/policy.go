@@ -217,6 +217,16 @@ type PackageAware struct {
 
 //Select selection to worker most free
 func (b *PackageAware) Select(pool HostPool, request *http.Request) *UpstreamHost {
+
+	if b.hashRing == nil {
+		b.hashRing = consistent.New()
+		for _, host := range pool {
+			if host.Available() {
+				b.hashRing.Add(host.Name)
+			}
+		}
+	}
+
 	workerNodes := b.workerNodes
 	if len(workerNodes) == 0 {
 		return nil
