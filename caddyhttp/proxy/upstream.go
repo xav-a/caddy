@@ -752,6 +752,15 @@ func (u *staticUpstream) GetHostCount() int {
 	return len(u.Hosts)
 }
 
+func (u *staticUpstream) HostDoneInConsistentBounded(hostName string){
+	policy, ok := u.Policy.(*Consistent_Hashing_Bounded)
+	if ok {
+		policy.HostDone(hostName)
+		return
+	}
+	return
+}
+
 // Stop sends a signal to all goroutines started by this staticUpstream to exit
 // and waits for them to finish before returning.
 func (u *staticUpstream) Stop() error {

@@ -70,6 +70,9 @@ type Upstream interface {
 
 	// Stops the upstream from proxying requests to shutdown goroutines cleanly.
 	Stop() error
+
+	//If the Policy is Consistent Hashing with Bounded Loads, decrease the load in the Host "hostName"
+	HostDoneInConsistentBounded(hostName string)
 }
 
 // UpstreamHostDownFunc can be used to customize how Down behaves.
@@ -254,6 +257,8 @@ func (p Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) (int, error) {
 			defer atomic.AddInt64(&host.Conns, -1)
 			backendErr = proxy.ServeHTTP(w, outreq, downHeaderUpdateFn)
 		}()
+
+		upstream.HostDoneInConsistentBounded(host.Name)
 
 		// if no errors, we're done here
 		if backendErr == nil {
