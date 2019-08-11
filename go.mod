@@ -13,8 +13,10 @@ require (
 	github.com/jimstudt/http-authentication v0.0.0-20140401203705-3eca13d6893a
 	github.com/klauspost/cpuid v1.2.0
 	github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348 // indirect
+	github.com/lafikl/consistent v0.0.0-20190331123054-b5c3ef09639f
 	github.com/lucas-clemente/quic-go v0.10.2
 	github.com/mholt/certmagic v0.6.2-0.20190624175158-6a42ef9fe8c2
+	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1 // indirect
 	github.com/naoina/go-stringutil v0.1.0 // indirect
 	github.com/naoina/toml v0.1.1
 	github.com/russross/blackfriday v0.0.0-20170610170232-067529f716f4

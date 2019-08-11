@@ -359,3 +359,26 @@ func TestHeaderPolicy(t *testing.T) {
 		}
 	}
 }
+
+func TestPASch(t *testing.T) {
+	pool := testPool()
+	paschPolicy := &PackageAware{}
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+
+	h := paschPolicy.Select(pool, req)
+	h.Unhealthy = 1
+	if h == pool[0] {
+		t.Error("Expected pasch policy host to be a host different of first.")
+	}
+
+	j := pool[0]
+	j.Unhealthy = 3
+	k := pool[1]
+	k.Unhealthy = 2
+	l := pool[2]
+	l.Unhealthy = 1
+	h = paschPolicy.Select(pool, req)
+	if h != pool[2] {
+		t.Error("Expected pasch policy host to be third host.")
+	}
+}

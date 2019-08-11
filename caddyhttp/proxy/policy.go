@@ -22,6 +22,9 @@ import (
 	"net"
 	"net/http"
 	"sync"
+	"sync/atomic"
+
+	"github.com/lafikl/consistent"
 )
 
 // HostPool is a collection of UpstreamHosts.
@@ -40,6 +43,7 @@ func init() {
 	RegisterPolicy("first", func(arg string) Policy { return &First{} })
 	RegisterPolicy("uri_hash", func(arg string) Policy { return &URIHash{} })
 	RegisterPolicy("header", func(arg string) Policy { return &Header{arg} })
+	RegisterPolicy("pasch", func(arg string) Policy { return &PackageAware{} })
 }
 
 // Random is a policy that selects up hosts from a pool at random.
@@ -200,3 +204,138 @@ func (r *Header) Select(pool HostPool, request *http.Request) *UpstreamHost {
 	}
 	return hostByHashing(pool, val)
 }
+
+//Here begin PASch Balancer
+//Jonathan Parrales
+
+func findWorkerNodeInSlice(workerNodeSlice HostPool, target string) int {
+	totalItems := len(workerNodeSlice)
+	for i := 0; i < totalItems; i++ {
+		if workerNodeSlice[i].Name == target {
+			return i
+		}
+	}
+	return -1
+}
+
+//PackageAware structure for PASCH
+type PackageAware struct {
+	hashRing      *consistent.Consistent
+	loadThreshold atomic.Value
+	workerNodes   []*UpstreamHost
+	workerNodeMap map[string]*UpstreamHost
+	mutex         *sync.Mutex
+}
+
+//SelectWorker selection to worker most free
+func (b *PackageAware) Select(pool HostPool, request *http.Request) *UpstreamHost {
+	workerNodes := b.workerNodes
+	if len(workerNodes) == 0 {
+		return nil
+	}
+
+	pkgs := pool
+	if len(pkgs) == 0 {
+		return nil
+	}
+
+	largestPkg := len(pkgs)
+	host, err := b.hashRing.Get(string(largestPkg))
+	if err != nil {
+		log.Fatal(err)
+	}
+	selectedNode := b.workerNodeMap[host]
+	if selectedNode == nil {
+		return selectedNode
+	}
+
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
+	if selectedNode.Unhealthy >= b.workerNodeMap[host].Unhealthy { // Find least loaded
+		selectedNode = b.selectLeastLoadedWorker()
+	}
+
+	//selectedNode.Load++
+
+	return selectedNode
+}
+
+//ReleaseWorker free a worker
+func (b *PackageAware) ReleaseWorker(workerUrl string) {
+	selectedNode := b.workerNodeMap[workerUrl]
+	if selectedNode != nil {
+		b.mutex.Lock()
+		defer b.mutex.Unlock()
+
+		//selectedNode.Load--
+	}
+}
+
+/* func (b *PackageAware) AddWorker(workerUrl string) {
+	host := workerUrl.String()
+	node := worker.NewNode(workerUrl)
+	b.workerNodes = append(b.workerNodes, node)
+	b.hashRing.Add(host)
+	b.workerNodeMap[host] = node
+}
+
+func (b *PackageAware) RemoveWorker(workerUrl string) {
+	host := workerUrl.String()
+	source := b.workerNodes
+	targetIndex := findWorkerNodeInSlice(source, workerUrl)
+	if targetIndex > -1 {
+		b.workerNodes = append(source[:targetIndex], source[targetIndex+1:]...)
+		b.hashRing.Remove(targetIndex)
+		b.workerNodeMap[targetIndex] = nil
+	}
+} */
+
+func (b *PackageAware) selectLeastLoadedWorker() *UpstreamHost {
+	targetIndex := 0
+	workers := b.workerNodes
+	for i := 1; i < len(workers); i++ {
+		if workers[i].Unhealthy > workers[targetIndex].Unhealthy {
+			targetIndex = i
+		}
+	}
+	return workers[targetIndex]
+}
+
+//GetAllWorkers get all workers
+func (b *PackageAware) GetAllWorkers() []*UpstreamHost {
+	workerNodes := b.workerNodes
+	totalWorkers := len(workerNodes)
+	workerUrls := make([]*UpstreamHost, totalWorkers)
+
+	for i, indexedNode := range workerNodes {
+		workerUrls[i] = indexedNode
+	}
+	return workerUrls
+}
+
+/* func NewPackageAware(workerUrls []url.URL, loadThreshold uint) Balancer {
+	totalUrls := len(workerUrls)
+
+	workerNodes := make([]*worker.Node, totalUrls)
+	workerNodeMap := make(map[string]*worker.Node)
+	hashRing := consistent.New()
+
+	for i, workerUrl := range workerUrls {
+		urlString := workerUrl.String()
+		workerNodes[i] = worker.NewNode(workerUrl)
+		hashRing.Add(urlString)
+		workerNodeMap[urlString] = workerNodes[i]
+	}
+
+	return &PackageAware{
+		hashRing,
+		loadThreshold,
+		workerNodes,
+		workerNodeMap,
+		&sync.Mutex{}}
+}
+
+func NewPackageAwareFromJSONSlice(jsonSlice []string, loadThreshold uint) Balancer {
+	return NewPackageAware(createWorkerURLSlice(jsonSlice), loadThreshold)
+} */
