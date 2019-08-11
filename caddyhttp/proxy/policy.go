@@ -22,7 +22,6 @@ import (
 	"net"
 	"net/http"
 	"sync"
-	"sync/atomic"
 
 	"github.com/lafikl/consistent"
 )
@@ -210,7 +209,7 @@ func (r *Header) Select(pool HostPool, request *http.Request) *UpstreamHost {
 //PackageAware structure for PASCH
 type PackageAware struct {
 	hashRing      *consistent.Consistent
-	loadThreshold atomic.Value
+	loadThreshold int64
 	workerNodes   []*UpstreamHost
 	workerNodeMap map[string]*UpstreamHost
 	mutex         *sync.Mutex
@@ -241,7 +240,7 @@ func (b *PackageAware) Select(pool HostPool, request *http.Request) *UpstreamHos
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
-	if selectedNode.Unhealthy >= b.workerNodeMap[host].Unhealthy { // Find least loaded
+	if selectedNode.Conns >= b.workerNodeMap[host].Conns { // Find least loaded
 		selectedNode = b.selectLeastLoadedWorker()
 	}
 
@@ -253,7 +252,7 @@ func (b *PackageAware) selectLeastLoadedWorker() *UpstreamHost {
 	targetIndex := 0
 	workers := b.workerNodes
 	for i := 1; i < len(workers); i++ {
-		if workers[i].Unhealthy > workers[targetIndex].Unhealthy {
+		if workers[i].Conns > workers[targetIndex].Conns {
 			targetIndex = i
 		}
 	}
