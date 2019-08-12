@@ -230,7 +230,7 @@ func (r *PackageAware) Select(pool HostPool, request *http.Request) *UpstreamHos
 	}else{
 
 		if bestHost.Conns >= r.loadThreshold { // Find least loaded
-			bestHost = r.selectLeastConndHost(pool)
+			bestHost = r.selectLeastConnHost(pool)
 		}
 
 		return bestHost
