@@ -218,7 +218,7 @@ func (r *PackageAware) Select(pool HostPool, request *http.Request) *UpstreamHos
 	if r.hashRing == nil {
 		r.hashRing = consistent.New()
 		r.workerNodeMap = make(map[string]*UpstreamHost)
-		r.loadThreshold=100 //To-Do JP:Parametrizar
+		r.loadThreshold=60 //To-Do JP:Parametrizar
 		for _, host := range pool {
 			if host.Available() {
 				r.hashRing.Add(host.Name)
@@ -230,7 +230,7 @@ func (r *PackageAware) Select(pool HostPool, request *http.Request) *UpstreamHos
 	if err != nil {
 		log.Println("[ERROR] There are no hosts in the Hash Ring: ", err)
 	} else {
-		host = r.workerNodeMap[bestHost]
+		host := r.workerNodeMap[bestHost]
 		if host.Conns >= r.loadThreshold { // Find least loaded
 			host = r.selectLeastConnHost(pool)
 		}
@@ -245,7 +245,7 @@ func (r *PackageAware) Select(pool HostPool, request *http.Request) *UpstreamHos
 func (r *PackageAware) selectLeastConnHost(pool HostPool) *UpstreamHost {
 	targetIndex := 0
 	for i := 1; i < len(pool); i++ {
-		if pool[i].Conns > pool[targetIndex].Conns {
+		if pool[i].Conns < pool[targetIndex].Conns {
 			targetIndex = i
 		}
 	}
