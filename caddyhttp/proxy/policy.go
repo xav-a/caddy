@@ -228,12 +228,15 @@ func (r *PackageAware) Select(pool HostPool, request *http.Request) *UpstreamHos
 	if err != nil {
 		log.Println("[ERROR] There are no hosts in the Hash Ring: ", err)
 	}else{
-
-		if bestHost.Conns >= r.loadThreshold { // Find least loaded
-			bestHost = r.selectLeastConnHost(pool)
+		for _, host := range pool {
+			if host.Name == bestHost {
+				if host.Conns >= r.loadThreshold { // Find least loaded
+					host = r.selectLeastConnHost(pool)
+				}
+				return host
+			}
 		}
 
-		return bestHost
 	}
 
 	return nil
@@ -241,7 +244,7 @@ func (r *PackageAware) Select(pool HostPool, request *http.Request) *UpstreamHos
 }
 
 //Return worker least loaded
-func (b *PackageAware) selectLeastConnHost(pool HostPool) *UpstreamHost {
+func (r *PackageAware) selectLeastConnHost(pool HostPool) *UpstreamHost {
 	targetIndex := 0
 	for i := 1; i < len(pool); i++ {
 		if pool[i].Conns > pool[targetIndex].Conns {
