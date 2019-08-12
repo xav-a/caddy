@@ -217,7 +217,7 @@ func (r *PackageAware) Select(pool HostPool, request *http.Request) *UpstreamHos
 
 	if r.hashRing == nil {
 		r.hashRing = consistent.New()
-		r.loadThreshold=20 //To-Do JP:Parametrizar
+		r.loadThreshold=6 //To-Do JP:Parametrizar
 		for _, host := range pool {
 			if host.Available() {
 				r.hashRing.Add(host.Name)
