@@ -210,35 +210,33 @@ func (r *Header) Select(pool HostPool, request *http.Request) *UpstreamHost {
 type PackageAware struct {
 	hashRing      *consistent.Consistent
 	loadThreshold int64
+	workerNodeMap map[string]*UpstreamHost
 }
 
 //Select selection to worker most free
 func (r *PackageAware) Select(pool HostPool, request *http.Request) *UpstreamHost {
-
 	if r.hashRing == nil {
 		r.hashRing = consistent.New()
-		r.loadThreshold=6 //To-Do JP:Parametrizar
+		r.workerNodeMap = make(map[string]*UpstreamHost)
+		r.loadThreshold=100 //To-Do JP:Parametrizar
 		for _, host := range pool {
 			if host.Available() {
 				r.hashRing.Add(host.Name)
+				r.workerNodeMap[host.Name] = host
 			}
 		}
 	}
 	bestHost, err := r.hashRing.Get(request.RequestURI)
 	if err != nil {
 		log.Println("[ERROR] There are no hosts in the Hash Ring: ", err)
-	}else{
-		for _, host := range pool {
-			if host.Name == bestHost {
-				if host.Conns >= r.loadThreshold { // Find least loaded
-					host = r.selectLeastConnHost(pool)
-				}
-				return host
-			}
+	} else {
+		host = r.workerNodeMap[bestHost]
+		if host.Conns >= r.loadThreshold { // Find least loaded
+			host = r.selectLeastConnHost(pool)
 		}
+		return host
 
 	}
-
 	return nil
 
 }
