@@ -217,7 +217,7 @@ func (r *PackageAware) Select(pool HostPool, request *http.Request) *UpstreamHos
 
 	if r.hashRing == nil {
 		r.hashRing = consistent.New()
-		r.loadThreshold=20 //To-Do JP:Parametrizar 
+		r.loadThreshold=20 //To-Do JP:Parametrizar
 		for _, host := range pool {
 			if host.Available() {
 				r.hashRing.Add(host.Name)
@@ -248,7 +248,7 @@ func (b *PackageAware) selectLeastConnHost(pool HostPool) *UpstreamHost {
 			targetIndex = i
 		}
 	}
-	return workers[targetIndex]
+	return pool[targetIndex]
 }
 
 type Consistent_Hashing_Bounded struct {
