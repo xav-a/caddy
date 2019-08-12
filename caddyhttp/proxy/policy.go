@@ -209,7 +209,7 @@ func (r *Header) Select(pool HostPool, request *http.Request) *UpstreamHost {
 //PackageAware structure for PASCH
 type PackageAware struct {
 	hashRing      *consistent.Consistent
-	loadThreshold uint
+	loadThreshold int64
 }
 
 //Select selection to worker most free
