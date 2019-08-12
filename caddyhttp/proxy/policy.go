@@ -209,60 +209,42 @@ func (r *Header) Select(pool HostPool, request *http.Request) *UpstreamHost {
 //PackageAware structure for PASCH
 type PackageAware struct {
 	hashRing      *consistent.Consistent
-	loadThreshold int64
-	workerNodes   []*UpstreamHost
-	workerNodeMap map[string]*UpstreamHost
-	mutex         *sync.Mutex
+	loadThreshold uint
 }
 
 //Select selection to worker most free
-func (b *PackageAware) Select(pool HostPool, request *http.Request) *UpstreamHost {
+func (r *PackageAware) Select(pool HostPool, request *http.Request) *UpstreamHost {
 
-	if b.hashRing == nil {
-		b.hashRing = consistent.New()
+	if r.hashRing == nil {
+		r.hashRing = consistent.New()
+		r.loadThreshold=20 //To-Do JP:Parametrizar 
 		for _, host := range pool {
 			if host.Available() {
-				b.hashRing.Add(host.Name)
+				r.hashRing.Add(host.Name)
 			}
 		}
 	}
-
-	workerNodes := b.workerNodes
-	if len(workerNodes) == 0 {
-		return nil
-	}
-
-	pkgs := pool
-	if len(pkgs) == 0 {
-		return nil
-	}
-
-	largestPkg := len(pkgs)
-	host, err := b.hashRing.Get(string(largestPkg))
+	bestHost, err := r.hashRing.Get(request.RequestURI)
 	if err != nil {
-		log.Fatal(err)
-	}
-	selectedNode := b.workerNodeMap[host]
-	if selectedNode == nil {
-		return selectedNode
-	}
+		log.Println("[ERROR] There are no hosts in the Hash Ring: ", err)
+	}else{
 
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
+		if bestHost.Conns >= r.loadThreshold { // Find least loaded
+			bestHost = r.selectLeastConndHost(pool)
+		}
 
-	if selectedNode.Conns >= b.workerNodeMap[host].Conns { // Find least loaded
-		selectedNode = b.selectLeastLoadedWorker()
+		return bestHost
 	}
 
-	return selectedNode
+	return nil
+
 }
 
-//selectLeastLoadedWorker return worker least loaded
-func (b *PackageAware) selectLeastLoadedWorker() *UpstreamHost {
+//Return worker least loaded
+func (b *PackageAware) selectLeastConnHost(pool HostPool) *UpstreamHost {
 	targetIndex := 0
-	workers := b.workerNodes
-	for i := 1; i < len(workers); i++ {
-		if workers[i].Conns > workers[targetIndex].Conns {
+	for i := 1; i < len(pool); i++ {
+		if pool[i].Conns > pool[targetIndex].Conns {
 			targetIndex = i
 		}
 	}
@@ -271,11 +253,6 @@ func (b *PackageAware) selectLeastLoadedWorker() *UpstreamHost {
 
 type Consistent_Hashing_Bounded struct {
 	hashRing *consistent.Consistent
-}
-
-func newHashRingConsistentBounded(pool HostPool) *consistent.Consistent {
-	c := consistent.New()
-	return c
 }
 
 func (r *Consistent_Hashing_Bounded) HostDone(hostName string) {
@@ -294,7 +271,7 @@ func (r *Consistent_Hashing_Bounded) Select(pool HostPool, request *http.Request
 	}
 	bestHost, err := r.hashRing.GetLeast(request.RequestURI)
 	if err != nil {
-		log.Println("There are no hosts in the Hash Ring: ", err)
+		log.Println("[ERROR] There are no hosts in the Hash Ring: ", err)
 	} else {
 		r.hashRing.Inc(bestHost)
 		for _, host := range pool {
