@@ -254,6 +254,7 @@ func (r *PackageAware) selectLeastConnHost(pool HostPool) *UpstreamHost {
 
 type Consistent_Hashing_Bounded struct {
 	hashRing *consistent.Consistent
+	workerNodeMap map[string]*UpstreamHost
 }
 
 func (r *Consistent_Hashing_Bounded) HostDone(hostName string) {
@@ -264,9 +265,11 @@ func (r *Consistent_Hashing_Bounded) HostDone(hostName string) {
 func (r *Consistent_Hashing_Bounded) Select(pool HostPool, request *http.Request) *UpstreamHost {
 	if r.hashRing == nil {
 		r.hashRing = consistent.New()
+		r.workerNodeMap = make(map[string]*UpstreamHost)
 		for _, host := range pool {
 			if host.Available() {
 				r.hashRing.Add(host.Name)
+				r.workerNodeMap[host.Name] = host
 			}
 		}
 	}
@@ -275,11 +278,9 @@ func (r *Consistent_Hashing_Bounded) Select(pool HostPool, request *http.Request
 		log.Println("[ERROR] There are no hosts in the Hash Ring: ", err)
 	} else {
 		r.hashRing.Inc(bestHost)
-		for _, host := range pool {
-			if host.Name == bestHost {
-				return host
-			}
-		}
+		host := r.workerNodeMap[bestHost]
+
+		return host
 	}
 	return nil
 }
