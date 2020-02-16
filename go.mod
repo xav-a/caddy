@@ -4,6 +4,7 @@ go 1.12
 
 require (
 	github.com/BurntSushi/toml v0.3.1 // indirect
+	github.com/SteevenRodriguez/consistent v0.0.0-20190331123054-b5c3ef09639f
 	github.com/dustin/go-humanize v1.0.0
 	github.com/flynn/go-shlex v0.0.0-20150515145356-3f9db97f8568
 	github.com/go-acme/lego v2.5.0+incompatible

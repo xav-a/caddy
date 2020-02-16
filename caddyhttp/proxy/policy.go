@@ -23,7 +23,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/lafikl/consistent"
+	"github.com/SteevenRodriguez/consistent"
 )
 
 // HostPool is a collection of UpstreamHosts.
